@@ -1,0 +1,17 @@
+{
+  "name": "Personal AI News & Knowledge Assistant",
+  "short_name": "AI News",
+  "description": "Daily world news simplified with AI explanation, background, and knowledge lessons.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
