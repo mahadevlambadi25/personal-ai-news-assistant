@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../src/server';
 import { connectDatabase, disconnectDatabase } from '../src/config/database';
+import { env } from '../src/config/env';
 import { WhatsAppRouter } from '../src/whatsapp/whatsapp.router';
 import { WhatsAppService } from '../src/whatsapp/whatsapp.service';
 import { News } from '../src/models/News';
@@ -15,6 +16,7 @@ describe('Phase 9: Meta WhatsApp Cloud API Integration', () => {
     await connectDatabase();
     app = createApp();
 
+    await News.deleteMany({ url: 'https://example.com/green-hydrogen' });
     // Seed test news for WhatsApp digest
     const art = await News.create({
       title: 'India achieves clean hydrogen milestone',
@@ -51,7 +53,7 @@ describe('Phase 9: Meta WhatsApp Cloud API Integration', () => {
         .get('/api/whatsapp/webhook')
         .query({
           'hub.mode': 'subscribe',
-          'hub.verify_token': 'news_assistant_verify_token_dev',
+          'hub.verify_token': env.WHATSAPP_VERIFY_TOKEN,
           'hub.challenge': 'meta_challenge_code_98765',
         });
 

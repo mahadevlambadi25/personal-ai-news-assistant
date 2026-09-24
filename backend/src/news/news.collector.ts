@@ -13,6 +13,7 @@ export interface CollectorStats {
   newArticles: number;
   duplicates: number;
   skipped: number;
+  categories?: Record<string, number>;
 }
 
 export class NewsCollector {
@@ -48,7 +49,9 @@ export class NewsCollector {
     const providerResults = await Promise.allSettled(
       this.providers.map(async (provider) => {
         try {
-          return await provider.fetchArticles();
+          const articles = await provider.fetchArticles();
+          logger.info(`Provider [${provider.name}] returned ${articles.length} articles.`);
+          return articles;
         } catch (err: any) {
           logger.error(`Provider [${provider.name}] failed during fetch: ${err.message}`);
           return [];
@@ -136,18 +139,20 @@ export class NewsCollector {
     const existingHashSet = new Set(existingArticles.map((a: any) => a.contentHash));
 
     // Step 5 & 6: Classify category & prepare models for insertion
+    const categoryCounts: Record<string, number> = {};
     const toInsert = [];
     for (const candidate of candidates) {
-      if (existingHashSet.has(candidate.contentHash)) {
-        stats.duplicates++;
-        continue;
-      }
-
       const category = classifyArticleCategory(
         candidate.raw.title,
         candidate.raw.description,
         candidate.raw.categoryHint
       );
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+
+      if (existingHashSet.has(candidate.contentHash)) {
+        stats.duplicates++;
+        continue;
+      }
 
       toInsert.push({
         title: candidate.raw.title.trim(),
@@ -167,6 +172,8 @@ export class NewsCollector {
         aiProcessed: false,
       });
     }
+
+    stats.categories = categoryCounts;
 
     // Step 7: Batch insert new articles
     if (toInsert.length > 0) {

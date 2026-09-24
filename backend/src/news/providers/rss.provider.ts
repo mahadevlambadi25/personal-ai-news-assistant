@@ -4,14 +4,14 @@ import { Logger } from '../../utils/logger';
 
 const logger = new Logger('RSSProvider');
 
-interface FeedConfig {
+export interface FeedConfig {
   source: string;
   sourceName: string;
   url: string;
-  categoryHint?: string;
+  categoryHint: string;
 }
 
-const DEFAULT_FEEDS: FeedConfig[] = [
+export const DEFAULT_FEEDS: FeedConfig[] = [
   // India & National
   {
     source: 'the-hindu-national',
@@ -25,6 +25,13 @@ const DEFAULT_FEEDS: FeedConfig[] = [
     url: 'https://timesofindia.indiatimes.com/rssfeedstopstories.cms',
     categoryHint: 'India',
   },
+  {
+    source: 'ndtv-india',
+    sourceName: 'NDTV India',
+    url: 'https://feeds.feedburner.com/ndtvnews-india-news',
+    categoryHint: 'India',
+  },
+
   // World News
   {
     source: 'bbc-world',
@@ -32,20 +39,13 @@ const DEFAULT_FEEDS: FeedConfig[] = [
     url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
     categoryHint: 'World',
   },
-  // Technology & AI
   {
-    source: 'techcrunch',
-    sourceName: 'TechCrunch',
-    url: 'https://techcrunch.com/feed/',
-    categoryHint: 'Technology & AI',
+    source: 'aljazeera-world',
+    sourceName: 'Al Jazeera English',
+    url: 'https://www.aljazeera.com/xml/rss/all.xml',
+    categoryHint: 'World',
   },
-  // Science & Space
-  {
-    source: 'science-daily',
-    sourceName: 'ScienceDaily',
-    url: 'https://www.sciencedaily.com/rss/top/science.xml',
-    categoryHint: 'Science & Space',
-  },
+
   // Business & Economy
   {
     source: 'bbc-business',
@@ -53,6 +53,59 @@ const DEFAULT_FEEDS: FeedConfig[] = [
     url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
     categoryHint: 'Business & Economy',
   },
+  {
+    source: 'the-hindu-businessline',
+    sourceName: 'The Hindu BusinessLine',
+    url: 'https://www.thehindubusinessline.com/news/feeder/default.rss',
+    categoryHint: 'Business & Economy',
+  },
+  {
+    source: 'cnbc-world',
+    sourceName: 'CNBC International',
+    url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',
+    categoryHint: 'Business & Economy',
+  },
+
+  // Technology & AI
+  {
+    source: 'techcrunch',
+    sourceName: 'TechCrunch',
+    url: 'https://techcrunch.com/feed/',
+    categoryHint: 'Technology & AI',
+  },
+  {
+    source: 'the-verge',
+    sourceName: 'The Verge',
+    url: 'https://www.theverge.com/rss/index.xml',
+    categoryHint: 'Technology & AI',
+  },
+  {
+    source: 'ars-technica',
+    sourceName: 'Ars Technica',
+    url: 'https://feeds.arstechnica.com/arstechnica/index',
+    categoryHint: 'Technology & AI',
+  },
+
+  // Science & Space
+  {
+    source: 'science-daily',
+    sourceName: 'ScienceDaily',
+    url: 'https://www.sciencedaily.com/rss/top/science.xml',
+    categoryHint: 'Science & Space',
+  },
+  {
+    source: 'scientific-american',
+    sourceName: 'Scientific American',
+    url: 'http://rss.sciam.com/ScientificAmerican-Global',
+    categoryHint: 'Science & Space',
+  },
+  {
+    source: 'nasa-news',
+    sourceName: 'NASA News',
+    url: 'https://www.nasa.gov/news-release/feed/',
+    categoryHint: 'Science & Space',
+  },
+
   // Sports
   {
     source: 'bbc-sport',
@@ -60,14 +113,101 @@ const DEFAULT_FEEDS: FeedConfig[] = [
     url: 'https://feeds.bbci.co.uk/sport/rss.xml',
     categoryHint: 'Sports',
   },
+  {
+    source: 'sky-sports',
+    sourceName: 'Sky Sports',
+    url: 'https://www.skysports.com/rss/12040',
+    categoryHint: 'Sports',
+  },
+  {
+    source: 'guardian-sport',
+    sourceName: 'The Guardian Sport',
+    url: 'https://www.theguardian.com/sport/rss',
+    categoryHint: 'Sports',
+  },
+
   // Environment
   {
-    source: 'phys-earth',
-    sourceName: 'Phys.org Earth',
-    url: 'https://phys.org/rss-feed/earth-news/',
+    source: 'un-climate',
+    sourceName: 'UN News Climate Change',
+    url: 'https://news.un.org/feed/subscribe/en/news/topic/climate-change/feed/rss.xml',
     categoryHint: 'Environment',
   },
+  {
+    source: 'guardian-environment',
+    sourceName: 'The Guardian Environment',
+    url: 'https://www.theguardian.com/environment/rss',
+    categoryHint: 'Environment',
+  },
+
+  // Major Incidents (Severe Disasters, Earthquakes, Tropical Storms)
+  {
+    source: 'usgs-earthquakes',
+    sourceName: 'USGS Earthquakes M4.5+',
+    url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.atom',
+    categoryHint: 'Major Incidents',
+  },
+  {
+    source: 'noaa-nhc',
+    sourceName: 'NOAA Hurricane Center',
+    url: 'https://www.nhc.noaa.gov/index-at.xml',
+    categoryHint: 'Major Incidents',
+  },
 ];
+
+/**
+ * Strips HTML tags and unescapes common HTML entities for clean text storage.
+ */
+function cleanText(raw?: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Extracts image URL from RSS item enclosures, media tags, or inline HTML <img> tags.
+ */
+function extractImageUrl(item: any): string {
+  // 1. Enclosure check
+  if (item.enclosure && item.enclosure.url && (!item.enclosure.type || item.enclosure.type.startsWith('image/'))) {
+    return item.enclosure.url.trim();
+  }
+
+  // 2. Media:content check (handles array or single object)
+  if (item.mediaContent) {
+    const list = Array.isArray(item.mediaContent) ? item.mediaContent : [item.mediaContent];
+    for (const mc of list) {
+      if (mc?.$?.url) return mc.$.url.trim();
+      if (mc?.url) return mc.url.trim();
+    }
+  }
+
+  // 3. Media:thumbnail check
+  if (item.mediaThumbnail) {
+    const list = Array.isArray(item.mediaThumbnail) ? item.mediaThumbnail : [item.mediaThumbnail];
+    for (const mt of list) {
+      if (mt?.$?.url) return mt.$.url.trim();
+      if (mt?.url) return mt.url.trim();
+    }
+  }
+
+  // 4. HTML img tag extraction from content or description
+  const html = item.contentEncoded || item.content || item.description || item.summary || '';
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+
+  return '';
+}
 
 export class RSSProvider implements INewsProvider {
   readonly name = 'RSSProvider';
@@ -76,12 +216,25 @@ export class RSSProvider implements INewsProvider {
 
   constructor(customFeeds?: FeedConfig[]) {
     this.parser = new Parser({
-      timeout: 8000,
+      timeout: 10000,
       headers: {
-        'User-Agent': 'PersonalAINewsBot/1.0 (+https://github.com/personal-news-assistant)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 PersonalAINewsBot/1.0',
+        'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml;q=0.9, */*;q=0.8',
+      },
+      customFields: {
+        item: [
+          ['media:content', 'mediaContent', { keepArray: true }],
+          ['media:thumbnail', 'mediaThumbnail'],
+          ['content:encoded', 'contentEncoded'],
+          ['enclosure', 'enclosure'],
+        ],
       },
     });
     this.feeds = customFeeds || DEFAULT_FEEDS;
+  }
+
+  getFeeds(): FeedConfig[] {
+    return this.feeds;
   }
 
   async fetchArticles(): Promise<RawArticle[]> {
@@ -92,32 +245,35 @@ export class RSSProvider implements INewsProvider {
     const feedPromises = this.feeds.map(async (feed) => {
       try {
         const feedData = await this.parser.parseURL(feed.url);
-        if (!feedData || !feedData.items) return [];
+        if (!feedData || !feedData.items) {
+          logger.warn(`RSS feed [${feed.sourceName}]: returned no items.`);
+          return [];
+        }
 
         const articles: RawArticle[] = [];
         for (const item of feedData.items) {
           if (!item.title || !item.link) continue;
 
-          // Extract image if available in enclosure or media
-          let imageUrl = '';
-          if (item.enclosure && item.enclosure.url && item.enclosure.type?.startsWith('image/')) {
-            imageUrl = item.enclosure.url;
-          }
+          const imageUrl = extractImageUrl(item);
+          const rawDescription = item.contentSnippet || item.summary || item.description || item.content || '';
+          const description = cleanText(rawDescription);
+          const content = cleanText(item.content || item.contentSnippet || rawDescription);
 
           articles.push({
-            title: item.title.trim(),
-            description: (item.contentSnippet || item.content || item.summary || '').trim(),
-            content: (item.content || item.contentSnippet || '').trim(),
+            title: cleanText(item.title),
+            description,
+            content: content || description,
             url: item.link.trim(),
             source: feed.source,
             sourceName: feed.sourceName,
-            author: item.creator || item.author || feed.sourceName,
+            author: cleanText(item.creator || (item as any)['dc:creator'] || item.author || feed.sourceName),
             imageUrl,
             publishedAt: item.isoDate || item.pubDate || new Date().toISOString(),
             categoryHint: feed.categoryHint,
             language: 'en',
           });
         }
+        logger.info(`RSS feed [${feed.sourceName}]: Successfully fetched ${articles.length} articles.`);
         return articles;
       } catch (err: any) {
         logger.warn(`Failed to fetch RSS feed [${feed.sourceName}]: ${err.message}. Continuing with others.`);

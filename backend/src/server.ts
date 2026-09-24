@@ -86,8 +86,26 @@ export async function startServer() {
       appLogger.info(`Personal AI News & Knowledge Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
     });
 
+    // Periodic RSS News Refresh in production / development (every 60 minutes)
+    let periodicRefreshTimer: NodeJS.Timeout | null = null;
+    if (!env.isTest) {
+      const PERIODIC_REFRESH_MS = 60 * 60 * 1000;
+      periodicRefreshTimer = setInterval(async () => {
+        try {
+          appLogger.info('Triggering periodic scheduled RSS news refresh...');
+          const { NewsService } = await import('./services/news.service');
+          await NewsService.refreshNews();
+        } catch (err: any) {
+          appLogger.warn(`Periodic news refresh error: ${err.message}`);
+        }
+      }, PERIODIC_REFRESH_MS);
+    }
+
     // Graceful Shutdown
     const shutdown = async (signal: string) => {
+      if (periodicRefreshTimer) {
+        clearInterval(periodicRefreshTimer);
+      }
       appLogger.info(`Received ${signal}. Shutting down gracefully...`);
       server.close(async () => {
         await disconnectDatabase();

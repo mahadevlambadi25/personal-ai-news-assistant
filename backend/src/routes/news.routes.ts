@@ -7,6 +7,7 @@ const router = Router();
 
 router.get('/', NewsController.getNews);
 router.post('/refresh', NewsController.refreshNews);
+router.get('/refresh', NewsController.refreshNews);
 router.get('/category/:category', NewsController.getNewsByCategory);
 router.get('/:id', NewsController.getNewsById);
 
