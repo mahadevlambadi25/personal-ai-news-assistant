@@ -26,7 +26,8 @@ export class NewsController {
   static async getNewsById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const result = await NewsService.getNewsById(id);
+      const { lang } = req.query;
+      const result = await NewsService.getNewsById(id, typeof lang === 'string' ? lang : undefined);
       sendSuccess(res, result);
     } catch (err) {
       next(err);

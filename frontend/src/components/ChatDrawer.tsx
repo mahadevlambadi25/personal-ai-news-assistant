@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  MessageSquare,
   X,
   Send,
   Sparkles,
   Bot,
   User as UserIcon,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
 import { chatApi } from '../services/api';
 import { ChatMessage } from '../types';
+import { useLanguage } from '../hooks/useLanguage';
 
 export const ChatDrawer: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { language } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -23,6 +25,7 @@ export const ChatDrawer: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [showChips, setShowChips] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const suggestionChips = [
@@ -55,10 +58,11 @@ export const ChatDrawer: React.FC = () => {
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setShowChips(false);
     setIsSending(true);
 
     try {
-      const data = await chatApi.sendMessage(query);
+      const data = await chatApi.sendMessage(query, undefined, language);
       const assistantMsg: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'assistant',
@@ -96,55 +100,55 @@ export const ChatDrawer: React.FC = () => {
 
       {/* Chat Drawer Window */}
       {isOpen && (
-        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-slide-left">
+        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-slide-left overflow-hidden">
           {/* Header */}
-          <div className="p-4 bg-slate-900 text-white flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+          <div className="p-4 bg-slate-900 text-white flex items-center justify-between shadow-sm shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
                 <Bot className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="text-xs font-bold">Personal AI News Assistant</h3>
-                <p className="text-[10px] text-slate-400">Contextual answers from verified news</p>
+              <div className="min-w-0">
+                <h3 className="text-xs font-bold truncate">Personal AI News Assistant</h3>
+                <p className="text-[10px] text-slate-400 truncate">Verified news grounding</p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors shrink-0"
+              aria-label="Close chat"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/50">
+          {/* Messages Area: independent scroll, no horizontal overflow */}
+          <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden space-y-3.5 bg-slate-50/50 min-h-0">
             {messages.map((m) => {
               const isUser = m.sender === 'user';
               return (
                 <div
                   key={m.id}
-                  className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'} max-w-full`}
                 >
                   {!isUser && (
-                    <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 text-xs mt-0.5">
                       <Sparkles className="w-3.5 h-3.5" />
                     </div>
                   )}
 
                   <div
-                    className={`max-w-[85%] rounded-2xl p-3.5 text-xs leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl p-3.5 text-xs leading-relaxed break-words [overflow-wrap:anywhere] ${
                       isUser
-                        ? 'bg-sky-600 text-white rounded-br-sm'
+                        ? 'bg-sky-600 text-white rounded-br-sm shadow-sm'
                         : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-sm shadow-sm'
                     }`}
                   >
                     <div className="whitespace-pre-wrap">{m.text}</div>
 
-                    {/* Related Articles Citations */}
                     {m.relatedArticles && m.relatedArticles.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5">
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                          Cited News Context:
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Verified Sources:
                         </span>
                         {m.relatedArticles.map((art) => (
                           <a
@@ -152,9 +156,11 @@ export const ChatDrawer: React.FC = () => {
                             href={art.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-[11px] text-sky-700 truncate transition-colors flex items-center justify-between"
+                            className="flex items-center justify-between p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-[11px] text-sky-600 truncate transition-colors"
                           >
-                            <span className="truncate">{art.title}</span>
+                            <span className="truncate max-w-[90%] font-medium">
+                              {art.title}
+                            </span>
                             <ExternalLink className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
                           </a>
                         ))}
@@ -163,7 +169,7 @@ export const ChatDrawer: React.FC = () => {
                   </div>
 
                   {isUser && (
-                    <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0 mt-0.5">
                       <UserIcon className="w-3.5 h-3.5" />
                     </div>
                   )}
@@ -172,52 +178,67 @@ export const ChatDrawer: React.FC = () => {
             })}
 
             {isSending && (
-              <div className="flex gap-2.5 items-center text-xs text-slate-500 py-2">
+              <div className="flex gap-2 items-center text-xs text-slate-400 py-1">
                 <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                  <Sparkles className="w-3.5 h-3.5 animate-spin text-sky-600" />
                 </div>
-                <div className="bg-white border border-slate-200 rounded-2xl px-3 py-2 text-slate-500">
-                  Analyzing recent news context...
-                </div>
+                <span>Analyzing news context...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Suggestion Chips */}
-          <div className="p-2 border-t border-slate-100 bg-white overflow-x-auto scrollbar-none flex gap-1.5">
-            {suggestionChips.map((chip, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSendMessage(chip)}
-                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] whitespace-nowrap font-medium transition-colors"
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
+          {/* Quick Prompts */}
+          {showChips && (
+            <div className="p-2.5 bg-white border-t border-slate-100 flex flex-wrap gap-1.5 shrink-0">
+              {suggestionChips.map((chip, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSendMessage(chip)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 text-slate-700 rounded-lg text-[11px] font-medium transition-colors border border-slate-200"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Input Bar */}
+          {/* Fixed Composer: [ + ] [Ask anything...] [Send] */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="p-3 border-t border-slate-200 bg-white flex items-center gap-2"
+            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
           >
+            <button
+              type="button"
+              onClick={() => setShowChips(!showChips)}
+              className={`p-2 rounded-xl transition-colors shrink-0 ${
+                showChips
+                  ? 'bg-sky-100 text-sky-700'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              }`}
+              title="Suggested questions"
+              aria-label="Toggle suggestions"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about today's news..."
-              className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+              placeholder="Ask anything about today's news..."
+              className="flex-1 min-w-0 px-3.5 py-2 bg-slate-100/80 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all truncate"
             />
             <button
               type="submit"
               disabled={!input.trim() || isSending}
-              className="p-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition-colors"
+              className="p-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white rounded-xl shadow-sm transition-colors shrink-0"
+              aria-label="Send"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5" />
             </button>
           </form>
         </div>

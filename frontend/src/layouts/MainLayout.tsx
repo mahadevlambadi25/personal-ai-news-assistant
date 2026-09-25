@@ -5,7 +5,6 @@ import { BottomNav } from '../components/BottomNav';
 import { Header } from '../components/Header';
 import { ChatDrawer } from '../components/ChatDrawer';
 import { Toast } from '../components/Toast';
-import { NewsDetailModal } from '../components/NewsDetailModal';
 import { NewsArticle, CategoryCount } from '../types';
 import { newsApi } from '../services/api';
 import { useSavedNews } from '../hooks/useSavedNews';
@@ -14,7 +13,6 @@ export const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [categoryCounts, setCategoryCounts] = useState<CategoryCount[]>([]);
-  const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
@@ -67,8 +65,14 @@ export const MainLayout: React.FC = () => {
           onSearch={(q) => navigate(`/latest?search=${encodeURIComponent(q)}`)}
         />
 
-        <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
-          <Outlet context={{ onOpenDetail: setSelectedArticle, showToast, categoryCounts }} />
+        <main className="flex-1 p-3 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">
+          <Outlet
+            context={{
+              onOpenDetail: (article: NewsArticle) => navigate(`/news/${article._id}`),
+              showToast,
+              categoryCounts,
+            }}
+          />
         </main>
       </div>
 
@@ -77,18 +81,6 @@ export const MainLayout: React.FC = () => {
 
       {/* Global Floating AI Chat Widget */}
       <ChatDrawer />
-
-      {/* Global Article Detail Modal */}
-      {selectedArticle && (
-        <NewsDetailModal
-          article={selectedArticle}
-          onClose={() => setSelectedArticle(null)}
-          isSaved={isSaved(selectedArticle._id)}
-          onToggleSave={toggleSave}
-          onShowToast={showToast}
-          onSelectRelated={(art) => setSelectedArticle(art)}
-        />
-      )}
 
       {/* Toast Notification */}
       {toastMessage && (

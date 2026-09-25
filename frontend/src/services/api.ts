@@ -54,8 +54,10 @@ export const newsApi = {
     return res.data.data;
   },
 
-  getNewsById: async (id: string): Promise<ArticleDetailResponse> => {
-    const res = await api.get(`/api/news/${id}`);
+  getNewsById: async (id: string, lang?: 'en' | 'hinglish'): Promise<ArticleDetailResponse> => {
+    const res = await api.get(`/api/news/${id}`, {
+      params: lang ? { lang } : undefined,
+    });
     return res.data.data;
   },
 
@@ -103,9 +105,11 @@ export const knowledgeApi = {
 
 export const chatApi = {
   sendMessage: async (
-    message: string
+    message: string,
+    articleId?: string,
+    language?: 'en' | 'hinglish'
   ): Promise<{ message: string; response: string; relatedArticles: any[] }> => {
-    const res = await api.post('/api/chat', { message });
+    const res = await api.post('/api/chat', { message, articleId, language });
     return res.data.data;
   },
 

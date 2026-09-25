@@ -10,6 +10,8 @@ export type NewsCategory =
   | 'Sports'
   | 'Knowledge';
 
+export type AppLanguage = 'en' | 'hinglish';
+
 export interface User {
   id: string;
   name: string;
@@ -27,6 +29,7 @@ export interface SummaryData {
     simpleExplanation: string;
   };
   confidence?: number;
+  language?: AppLanguage;
 }
 
 export interface NewsArticle {

@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Sparkles,
   ArrowRight,
   BookOpen,
-  MessageSquare,
   TrendingUp,
   RotateCw,
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 import { NewsArticle, KnowledgeItem, CategoryCount } from '../types';
 import { newsApi, knowledgeApi } from '../services/api';
+import { FeaturedStoryCard } from '../components/FeaturedStoryCard';
+import { SecondaryStoryCard } from '../components/SecondaryStoryCard';
 import { NewsCard } from '../components/NewsCard';
 import { SkeletonCard } from '../components/SkeletonCard';
 import { CategoryPills } from '../components/CategoryPills';
@@ -17,23 +20,26 @@ import { InstallPrompt } from '../components/InstallPrompt';
 import { useSavedNews } from '../hooks/useSavedNews';
 
 interface ContextType {
-  onOpenDetail: (article: NewsArticle) => void;
+  onOpenDetail?: (article: NewsArticle) => void;
   showToast: (msg: string) => void;
   categoryCounts: CategoryCount[];
 }
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { onOpenDetail, showToast, categoryCounts } = useOutletContext<ContextType>();
+  const { showToast, categoryCounts } = useOutletContext<ContextType>();
   const { isSaved, toggleSave } = useSavedNews();
 
   const [topArticles, setTopArticles] = useState<NewsArticle[]>([]);
-  const [latestArticles, setLatestArticles] = useState<NewsArticle[]>([]);
+  const [secondaryArticles, setSecondaryArticles] = useState<NewsArticle[]>([]);
+  const [streamArticles, setStreamArticles] = useState<NewsArticle[]>([]);
   const [todayKnowledge, setTodayKnowledge] = useState<KnowledgeItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [newsRes, knowRes] = await Promise.all([
         newsApi.getNews({ limit: 12 }),
@@ -41,15 +47,22 @@ export const DashboardPage: React.FC = () => {
       ]);
 
       const all = newsRes.articles || [];
-      // Top 3 as featured stories, remaining as latest stream
-      setTopArticles(all.slice(0, 3));
-      setLatestArticles(all.slice(3, 12));
+      if (all.length > 0) {
+        setTopArticles(all.slice(0, 1));
+        setSecondaryArticles(all.slice(1, 3));
+        setStreamArticles(all.slice(3));
+      } else {
+        setTopArticles([]);
+        setSecondaryArticles([]);
+        setStreamArticles([]);
+      }
 
       if (knowRes.items && knowRes.items.length > 0) {
         setTodayKnowledge(knowRes.items[0]);
       }
     } catch {
-      showToast('Could not load dashboard data. Retrying...');
+      setLoadError("Unable to load today's news feeds.");
+      showToast?.('Could not load dashboard news.');
     } finally {
       setLoading(false);
     }
@@ -58,7 +71,6 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     loadDashboardData();
 
-    // Listen for global refresh events
     const handleNewsRefreshed = () => {
       loadDashboardData();
     };
@@ -67,163 +79,190 @@ export const DashboardPage: React.FC = () => {
   }, [loadDashboardData]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in max-w-7xl mx-auto">
       {/* PWA Install Banner */}
       <InstallPrompt />
 
-      {/* Hero Welcome & Value Proposition */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-950 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-800">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 text-xs font-semibold border border-sky-400/30">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI-Synthesized News & Knowledge</span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight">
-            What important things happened in the world today?
-          </h2>
-          <p className="text-slate-300 text-xs md:text-sm leading-relaxed">
-            Real-world news across 10 categories, explained with simple background, why it matters,
-            and key lessons to expand your knowledge. Strictly neutral and verified.
-          </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => navigate('/latest')}
-              className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
-            >
-              <span>Explore All News</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => navigate('/chat')}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 backdrop-blur-sm transition-all flex items-center gap-1.5"
-            >
-              <MessageSquare className="w-4 h-4 text-sky-400" />
-              <span>Ask AI Assistant</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Decorative background radial pattern */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-sky-500/20 via-transparent to-transparent pointer-events-none" />
-      </div>
-
-      {/* Category Pills Navigation */}
+      {/* Category Pills Navigation (Horizontal scroll on mobile) */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>Explore Categories</span>
-          </h3>
-          <span className="text-[11px] text-slate-400">10 Hubs Available</span>
-        </div>
         <CategoryPills
           categoryCounts={categoryCounts}
+          selectedCategory="all"
           onSelectCategory={(cat) => {
             if (cat === 'all') navigate('/latest');
+            else if (cat.toLowerCase() === 'knowledge') navigate('/knowledge');
             else navigate(`/category/${encodeURIComponent(cat)}`);
           }}
         />
       </div>
 
-      {/* Today's Knowledge Spotlight */}
-      {todayKnowledge && (
-        <div className="bg-gradient-to-r from-violet-50 via-purple-50 to-indigo-50 rounded-3xl p-6 border border-violet-200/80 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-2 max-w-3xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-600 text-white shadow-sm">
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Today’s Knowledge Concept</span>
-              </div>
-              <h3 className="text-lg md:text-xl font-bold text-violet-950">
-                {todayKnowledge.topic}
-              </h3>
-              <p className="text-xs md:text-sm text-violet-900 leading-relaxed">
-                {todayKnowledge.simpleExplanation}
-              </p>
-              {todayKnowledge.whyItMatters && (
-                <p className="text-xs text-violet-700 italic">
-                  💡 <strong>Why it matters:</strong> {todayKnowledge.whyItMatters}
-                </p>
-              )}
-            </div>
+      {/* Error State with Retry Button */}
+      {loadError && (
+        <div className="p-6 bg-white rounded-3xl border border-rose-200 shadow-sm text-center space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">{loadError}</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Please verify your network connection and backend server status.
+          </p>
+          <button
+            onClick={loadDashboardData}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors inline-flex items-center gap-1.5"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
 
-            <button
-              onClick={() => navigate('/knowledge')}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors whitespace-nowrap self-start md:self-center flex items-center gap-1.5"
-            >
-              <span>View Knowledge Hub</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+      {/* Loading Skeleton */}
+      {loading && !loadError && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-7 h-96 bg-slate-200/70 rounded-3xl animate-pulse" />
+            <div className="lg:col-span-5 space-y-4">
+              <div className="h-44 bg-slate-200/70 rounded-2xl animate-pulse" />
+              <div className="h-44 bg-slate-200/70 rounded-2xl animate-pulse" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </div>
         </div>
       )}
 
-      {/* Top Important News Section */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-sky-600" />
-              <span>Top Important Stories</span>
-            </h3>
-            <p className="text-xs text-slate-500">Key developments you should know about</p>
-          </div>
-          <button
-            onClick={() => navigate('/latest')}
-            className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1 transition-colors"
-          >
-            <span>View all</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+      {/* Main Top Stories Section with Strong Visual Hierarchy */}
+      {!loading && !loadError && topArticles.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-950 tracking-tight">
+                  Top Stories Today
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Important developments curated with AI synthesis
+                </p>
+              </div>
+            </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
+            <button
+              onClick={() => navigate('/latest')}
+              className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1 group"
+            >
+              <span>View all</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {topArticles.map((article) => (
-              <NewsCard
-                key={article._id}
-                article={article}
-                isSaved={isSaved(article._id)}
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            {/* 1 Main Featured Hero Story */}
+            <div className="lg:col-span-7 flex flex-col">
+              <FeaturedStoryCard
+                article={topArticles[0]}
+                isSaved={isSaved(topArticles[0]._id)}
                 onToggleSave={toggleSave}
                 onShowToast={showToast}
-                onOpenDetail={onOpenDetail}
               />
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
 
-      {/* Latest Stream Section */}
-      {latestArticles.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                Latest Feed Updates
+            {/* Smaller Secondary Stories */}
+            <div className="lg:col-span-5 flex flex-col justify-between gap-4">
+              {secondaryArticles.map((article) => (
+                <SecondaryStoryCard
+                  key={article._id}
+                  article={article}
+                  isSaved={isSaved(article._id)}
+                  onToggleSave={toggleSave}
+                  onShowToast={showToast}
+                />
+              ))}
+
+              {/* Quick AI Prompt Teaser */}
+              <div
+                onClick={() => navigate('/chat')}
+                className="p-4 rounded-2xl bg-gradient-to-r from-sky-900 to-indigo-950 text-white cursor-pointer hover:shadow-md transition-all flex items-center justify-between gap-3 group border border-sky-800/40"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-400/30">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <div className="text-xs font-bold group-hover:text-sky-300 transition-colors">
+                      Ask AI anything about today's news
+                    </div>
+                    <div className="text-[11px] text-slate-400 truncate">
+                      Grounded in verified multi-source news
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-sky-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Today's Knowledge Spotlight */}
+      {!loading && !loadError && todayKnowledge && (
+        <section className="bg-gradient-to-r from-violet-50 via-purple-50 to-indigo-50 rounded-3xl p-5 sm:p-6 border border-violet-200/90 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-3xl">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-600 text-white shadow-sm">
+                <BookOpen className="w-3 h-3" />
+                <span>Knowledge Concept of the Day</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-violet-950">
+                {todayKnowledge.topic}
               </h3>
-              <p className="text-xs text-slate-500">Recently verified stories</p>
+              <p className="text-xs sm:text-sm text-violet-900 leading-relaxed">
+                {todayKnowledge.simpleExplanation}
+              </p>
+            </div>
+
+            <button
+              onClick={() => navigate('/knowledge')}
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors whitespace-nowrap self-start md:self-center flex items-center gap-1.5"
+            >
+              <span>Explore Knowledge Hub</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Normal Compact News Cards Section */}
+      {!loading && !loadError && streamArticles.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-950 tracking-tight">
+                More Recent Stories
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Fresh reports across national and international desks
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {latestArticles.map((article) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {streamArticles.map((article) => (
               <NewsCard
                 key={article._id}
                 article={article}
                 isSaved={isSaved(article._id)}
                 onToggleSave={toggleSave}
                 onShowToast={showToast}
-                onOpenDetail={onOpenDetail}
               />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

@@ -12,14 +12,33 @@ export class ChatService {
    */
   static async askQuestion(
     userId: string,
-    message: string
+    message: string,
+    articleId?: string,
+    language?: string
   ): Promise<{
     message: string;
     response: string;
     relatedArticles: any[];
   }> {
     const cleanMessage = message.trim();
-    logger.info(`Processing user chat query: "${cleanMessage.substring(0, 50)}..."`);
+    logger.info(`Processing user chat query: "${cleanMessage.substring(0, 50)}..." [Article Context: ${articleId || 'None'}]`);
+
+    let relevantNews: any[] = [];
+
+    // If a specific article context is passed (e.g. from News Detail -> Ask AI), fetch it first
+    if (articleId) {
+      try {
+        const { Types } = await import('mongoose');
+        if (Types.ObjectId.isValid(articleId)) {
+          const directArticle = await News.findById(articleId).lean();
+          if (directArticle) {
+            relevantNews.push(directArticle);
+          }
+        }
+      } catch {
+        // ignore direct fetch failure
+      }
+    }
 
     // Extract significant search keywords from query (excluding common stop words)
     const stopWords = new Set([
@@ -33,20 +52,20 @@ export class ChatService {
       .split(/\s+/)
       .filter((w) => w.length > 2 && !stopWords.has(w));
 
-    let relevantNews: any[] = [];
-
     if (words.length > 0) {
       const keywordRegexes = words.map((w) => new RegExp(w, 'i'));
-      relevantNews = await News.find({
+      const found = await News.find({
         $or: [
           { title: { $in: keywordRegexes } },
           { description: { $in: keywordRegexes } },
           { category: { $in: keywordRegexes } },
         ],
+        ...(articleId ? { _id: { $ne: articleId } } : {}),
       })
         .sort({ publishedAt: -1 })
-        .limit(5)
+        .limit(4)
         .lean();
+      relevantNews.push(...found);
     }
 
     // If keyword query yielded 0 results, fall back to top recent news
@@ -75,13 +94,19 @@ export class ChatService {
 
     // Generate response using active AI service (OpenAI or LocalFallback)
     const aiService = getAIService();
-    const aiAnswer = await aiService.generateChatResponse(cleanMessage, contextForAI);
+    const rawAnswer = await aiService.generateChatResponse(cleanMessage, contextForAI);
+
+    let finalAnswer = rawAnswer;
+    if (language?.toLowerCase() === 'hinglish') {
+      const { HinglishService } = await import('./hinglish.service');
+      finalAnswer = HinglishService.synthesizeHinglishSentence(rawAnswer);
+    }
 
     // Save conversation history
     await Conversation.create({
       userId,
       message: cleanMessage,
-      response: aiAnswer,
+      response: finalAnswer,
       relatedNewsIds: articleIds,
     });
 
@@ -96,7 +121,7 @@ export class ChatService {
 
     return {
       message: cleanMessage,
-      response: aiAnswer,
+      response: finalAnswer,
       relatedArticles: relatedArticlesFormatted,
     };
   }

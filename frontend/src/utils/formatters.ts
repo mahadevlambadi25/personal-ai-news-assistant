@@ -12,20 +12,20 @@ export function timeAgo(dateInput?: string | Date): string {
 
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) {
-    return `${diffInMinutes}m ago`;
+    return diffInMinutes === 1 ? '1 min ago' : `${diffInMinutes} min ago`;
   }
 
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) {
-    return `${diffInHours}h ago`;
+    return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
   }
 
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays === 1) {
     return 'Yesterday';
   }
-  if (diffInDays < 30) {
-    return `${diffInDays}d ago`;
+  if (diffInDays < 7) {
+    return `${diffInDays} days ago`;
   }
 
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });

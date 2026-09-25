@@ -100,8 +100,9 @@ export class NewsService {
 
   /**
    * Fetches full article details along with its AI summary (if available) and related news.
+   * Supports optional lang parameter (e.g. 'hinglish') to retrieve AI explanations in Hinglish.
    */
-  static async getNewsById(id: string): Promise<{
+  static async getNewsById(id: string, lang = 'en'): Promise<{
     article: INewsArticle;
     summary: any | null;
     relatedNews: INewsArticle[];
@@ -124,7 +125,41 @@ export class NewsService {
 
     // Fetch AI summary if exists (dynamically query Summary collection)
     const { Summary } = await import('../models/Summary');
-    const summary = await Summary.findOne({ newsId: articleId }).lean();
+    let summaryDoc: any = await Summary.findOne({ newsId: articleId }).lean();
+
+    if (!summaryDoc) {
+      try {
+        const { getAIService } = await import('../ai/ai.factory');
+        const aiService = getAIService();
+        const aiResult = await aiService.processArticle({
+          title: (articleDoc as any).title,
+          description: (articleDoc as any).description,
+          content: (articleDoc as any).content,
+          categoryHint: (articleDoc as any).category,
+          sourceName: (articleDoc as any).sourceName,
+        });
+
+        const created = await Summary.create({
+          newsId: articleId,
+          summary: aiResult.summary,
+          whyItMatters: aiResult.whyItMatters,
+          background: aiResult.background,
+          keyFacts: aiResult.keyFacts,
+          knowledge: aiResult.knowledge,
+          confidence: aiResult.confidence,
+        });
+        summaryDoc = created.toObject ? created.toObject() : created;
+        await News.findByIdAndUpdate(articleId, { aiProcessed: true });
+      } catch {
+        // fallback
+      }
+    }
+
+    let processedSummary: any = summaryDoc || null;
+    if (processedSummary && lang?.toLowerCase() === 'hinglish') {
+      const { HinglishService } = await import('./hinglish.service');
+      processedSummary = await HinglishService.translateSummary(processedSummary as any);
+    }
 
     // Fetch related articles in the same category (excluding current)
     const relatedNews = await News.find({
@@ -137,7 +172,7 @@ export class NewsService {
 
     return {
       article: articleDoc as any,
-      summary: summary || null,
+      summary: processedSummary,
       relatedNews: relatedNews as any[],
     };
   }
