@@ -3,9 +3,14 @@ import { NewsCategory } from '../types/categories';
 export interface AIProcessedNews {
   category: NewsCategory;
   summary: string;
+  whatHappened?: string;
+  whyDidItHappen?: string;
   whyItMatters: string;
+  impact?: string;
   background: string;
   keyFacts: string[];
+  easyExplanation?: string;
+  whatNext?: string;
   knowledge: {
     topic: string;
     simpleExplanation: string;

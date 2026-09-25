@@ -110,12 +110,31 @@ export class LocalFallbackAIService implements IAIService {
         'Nationwide digital networks—such as digital identity and instant payments—that enable affordable, population-scale services for all citizens.';
     }
 
+    // What happened (Detailed narrative)
+    const whatHappened = desc && desc.length > 50
+      ? desc
+      : `${title}. Verified news coverage from ${source} reports ongoing developments concerning this event.`;
+
+    // Why did it happen?
+    const whyDidItHappen = `Reporting from ${source} indicates this development originated from planned sectoral initiatives and ongoing structural shifts in ${category.toLowerCase()}.`;
+
+    // Impact
+    const impact = `This directly influences relevant stakeholders, institutional decision-makers, and consumer awareness in ${category.toLowerCase()}.`;
+
+    // What happens next?
+    const whatNext = `Official stakeholders and relevant bodies are monitoring developments, with subsequent announcements expected in the upcoming period.`;
+
     return {
       category,
       summary,
+      whatHappened,
+      whyDidItHappen,
       whyItMatters,
+      impact,
       background,
       keyFacts,
+      easyExplanation: simpleExplanation,
+      whatNext,
       knowledge: {
         topic,
         simpleExplanation,

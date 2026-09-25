@@ -77,17 +77,28 @@ export class ChatService {
     }
 
     // Fetch summaries for the retrieved articles
+    const { decodeHtmlEntities } = await import('../utils/htmlEntities');
     const articleIds = relevantNews.map((a) => a._id);
     const summaries = await Summary.find({ newsId: { $in: articleIds } }).lean();
     const summaryMap = new Map<string, string>();
     for (const s of summaries) {
-      summaryMap.set(s.newsId.toString(), s.summary);
+      const details = [
+        s.summary,
+        s.whatHappened ? `Event details: ${s.whatHappened}` : '',
+        s.whyDidItHappen ? `Cause/Reason: ${s.whyDidItHappen}` : '',
+        s.whyItMatters ? `Why it matters: ${s.whyItMatters}` : '',
+        s.easyExplanation ? `Simple explanation: ${s.easyExplanation}` : '',
+      ]
+        .filter(Boolean)
+        .map(decodeHtmlEntities)
+        .join('. ');
+      summaryMap.set(s.newsId.toString(), details);
     }
 
     const contextForAI = relevantNews.map((a) => ({
-      title: a.title,
-      description: a.description,
-      summary: summaryMap.get(a._id.toString()) || a.description,
+      title: decodeHtmlEntities(a.title),
+      description: decodeHtmlEntities(a.description),
+      summary: summaryMap.get(a._id.toString()) || decodeHtmlEntities(a.description),
       sourceName: a.sourceName,
       publishedAt: a.publishedAt,
     }));
@@ -96,13 +107,10 @@ export class ChatService {
     const aiService = getAIService();
     const rawAnswer = await aiService.generateChatResponse(cleanMessage, contextForAI);
 
-    let finalAnswer = rawAnswer;
+    let finalAnswer = decodeHtmlEntities(rawAnswer);
     if (language?.toLowerCase() === 'hi' || language?.toLowerCase() === 'hindi') {
       const { HindiService } = await import('./hindi.service');
-      finalAnswer = await HindiService.translateTextToHindi(rawAnswer);
-    } else if (language?.toLowerCase() === 'hinglish') {
-      const { HinglishService } = await import('./hinglish.service');
-      finalAnswer = HinglishService.synthesizeHinglishSentence(rawAnswer);
+      finalAnswer = await HindiService.translateTextToHindi(finalAnswer);
     }
 
     // Save conversation history
@@ -115,7 +123,7 @@ export class ChatService {
 
     const relatedArticlesFormatted = relevantNews.map((a) => ({
       id: a._id.toString(),
-      title: a.title,
+      title: decodeHtmlEntities(a.title),
       sourceName: a.sourceName,
       url: a.url,
       category: a.category,

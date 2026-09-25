@@ -85,9 +85,17 @@ export class NewsService {
     ]);
 
     const totalPages = Math.ceil(total / limit) || 1;
+    const { decodeHtmlEntities } = await import('../utils/htmlEntities');
+
+    const cleanedArticles = (articles as any[]).map((art) => ({
+      ...art,
+      title: decodeHtmlEntities(art.title),
+      description: decodeHtmlEntities(art.description),
+      content: decodeHtmlEntities(art.content),
+    }));
 
     return {
-      articles: articles as unknown as INewsArticle[],
+      articles: cleanedArticles as unknown as INewsArticle[],
       pagination: {
         total,
         page,
@@ -142,9 +150,14 @@ export class NewsService {
         const created = await Summary.create({
           newsId: articleId,
           summary: aiResult.summary,
+          whatHappened: aiResult.whatHappened,
+          whyDidItHappen: aiResult.whyDidItHappen,
           whyItMatters: aiResult.whyItMatters,
+          impact: aiResult.impact,
           background: aiResult.background,
           keyFacts: aiResult.keyFacts,
+          easyExplanation: aiResult.easyExplanation,
+          whatNext: aiResult.whatNext,
           knowledge: aiResult.knowledge,
           confidence: aiResult.confidence,
         });
@@ -155,19 +168,53 @@ export class NewsService {
       }
     }
 
-    let processedSummary: any = summaryDoc || null;
-    let finalArticle: any = articleDoc;
+    const { decodeHtmlEntities } = await import('../utils/htmlEntities');
+
+    let finalArticle: any = {
+      ...(articleDoc as any),
+      title: decodeHtmlEntities((articleDoc as any).title),
+      description: decodeHtmlEntities((articleDoc as any).description),
+      content: decodeHtmlEntities((articleDoc as any).content),
+    };
+
+    let processedSummary: any = summaryDoc ? { ...(summaryDoc as any) } : null;
+
+    if (processedSummary) {
+      processedSummary.summary = decodeHtmlEntities(processedSummary.summary);
+      processedSummary.whatHappened = decodeHtmlEntities(
+        processedSummary.whatHappened || processedSummary.summary || finalArticle.description || finalArticle.content
+      );
+      processedSummary.whyDidItHappen = decodeHtmlEntities(
+        processedSummary.whyDidItHappen ||
+          `According to reports from ${finalArticle.sourceName}, this event developed as part of ongoing sectoral and policy initiatives.`
+      );
+      processedSummary.whyItMatters = decodeHtmlEntities(processedSummary.whyItMatters);
+      processedSummary.impact = decodeHtmlEntities(
+        processedSummary.impact ||
+          `This event influences key public stakeholders and institutional developments in ${finalArticle.category}.`
+      );
+      processedSummary.background = decodeHtmlEntities(processedSummary.background);
+      processedSummary.keyFacts = Array.isArray(processedSummary.keyFacts)
+        ? processedSummary.keyFacts.map(decodeHtmlEntities)
+        : [];
+      processedSummary.easyExplanation = decodeHtmlEntities(
+        processedSummary.easyExplanation ||
+          processedSummary.knowledge?.simpleExplanation ||
+          `In simple terms, this story covers an important development in ${finalArticle.category} that affects public understanding or everyday technology.`
+      );
+      processedSummary.whatNext = decodeHtmlEntities(
+        processedSummary.whatNext ||
+          'Subsequent updates, implementation phases, and official announcements are expected in the upcoming period.'
+      );
+    }
 
     if (processedSummary && (lang?.toLowerCase() === 'hi' || lang?.toLowerCase() === 'hindi')) {
       const { HindiService } = await import('./hindi.service');
-      const hindiResult = await HindiService.translateArticleSummary((articleDoc as any).title, processedSummary as any);
+      const hindiResult = await HindiService.translateArticleSummary(finalArticle.title, processedSummary as any);
       processedSummary = hindiResult.summary;
       if (hindiResult.translatedTitle) {
-        finalArticle = { ...(articleDoc as any), title: hindiResult.translatedTitle };
+        finalArticle = { ...finalArticle, title: hindiResult.translatedTitle };
       }
-    } else if (processedSummary && lang?.toLowerCase() === 'hinglish') {
-      const { HinglishService } = await import('./hinglish.service');
-      processedSummary = await HinglishService.translateSummary(processedSummary as any);
     }
 
     // Fetch related articles in the same category (excluding current)
@@ -179,10 +226,16 @@ export class NewsService {
       .limit(4)
       .lean();
 
+    const cleanedRelatedNews = (relatedNews as any[]).map((rel) => ({
+      ...rel,
+      title: decodeHtmlEntities(rel.title),
+      description: decodeHtmlEntities(rel.description),
+    }));
+
     return {
       article: finalArticle as any,
       summary: processedSummary,
-      relatedNews: relatedNews as any[],
+      relatedNews: cleanedRelatedNews as any[],
     };
   }
 

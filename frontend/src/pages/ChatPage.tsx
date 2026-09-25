@@ -9,7 +9,6 @@ import {
   Trash2,
   X,
   Plus,
-  HelpCircle,
 } from 'lucide-react';
 import { chatApi, newsApi } from '../services/api';
 import { ChatMessage, NewsArticle } from '../types';
@@ -18,17 +17,22 @@ import { useLanguage } from '../hooks/useLanguage';
 export const ChatPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { language, isHinglish } = useLanguage();
+  const { language, isHindi, t, synthesizeHindi, decodeText } = useLanguage();
 
   const articleId = searchParams.get('articleId');
   const [articleContext, setArticleContext] = useState<NewsArticle | null>(null);
   const [loadingContext, setLoadingContext] = useState(false);
 
+  const getWelcomeText = () =>
+    isHindi
+      ? "👋 आपके व्यक्तिगत एआई समाचार और ज्ञान सहायक में आपका स्वागत है!\n\nमैं भारत, विश्व, टेक, विज्ञान, व्यापार और अन्य क्षेत्रों के सत्यापित दैनिक समाचारों का विश्लेषण कर आपके प्रश्नों का तथ्यात्मक और निष्पक्ष उत्तर देता हूँ।\n\nआज की प्रमुख खबरों के बारे में कुछ भी पूछें, या किसी भी घटना व अवधारणा की सरल हिंदी में व्याख्या प्राप्त करें।"
+      : "👋 Welcome to your Personal AI News & Knowledge Assistant!\n\nI analyze verified daily news across India, World, Tech, Science, Business, and more to answer your questions factually and neutrally.\n\nAsk me anything about today's headlines, or ask for simple explanations of any concept or event.";
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'init',
       sender: 'assistant',
-      text: "👋 Welcome to your Personal AI News & Knowledge Assistant!\n\nI analyze verified daily news across India, World, Tech, Science, Business, and more to answer your questions factually and neutrally.\n\nAsk me anything about today's headlines, or ask for simple explanations of any concept or event.",
+      text: getWelcomeText(),
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -38,21 +42,40 @@ export const ChatPage: React.FC = () => {
   const [showPrompts, setShowPrompts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Update initial message text if language changes and only initial message is present
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === 'init') {
+        return [
+          {
+            ...prev[0],
+            text: getWelcomeText(),
+          },
+        ];
+      }
+      return prev;
+    });
+  }, [isHindi]);
+
   // Fetch article context if articleId is in URL
   useEffect(() => {
     if (articleId) {
       setLoadingContext(true);
       newsApi
-        .getNewsById(articleId)
+        .getNewsById(articleId, language)
         .then((res) => {
           setArticleContext(res.article);
-          // Add helpful context intro message
+          const cleanTitle = decodeText(res.article.title);
+          const ctxText = isHindi
+            ? `📌 मैंने इस खबर का संदर्भ लोड कर लिया है: **"${cleanTitle}"** (${res.article.sourceName})।\n\nआप मुझसे इसके बारे में कुछ भी पूछ सकते हैं, जैसे "इस खबर को आसान भाषा में समझाओ" या "यह घटना क्यों महत्वपूर्ण है?"`
+            : `📌 I have loaded context for: **"${cleanTitle}"** (${res.article.sourceName}).\n\nAsk me anything about this story, like "Explain what happened in simple language" or "Why is this important?"`;
+
           setMessages((prev) => [
             ...prev,
             {
               id: `ctx-${Date.now()}`,
               sender: 'assistant',
-              text: `📌 I have loaded context for: **"${res.article.title}"** (${res.article.sourceName}).\n\nAsk me anything about this story, like "Explain what happened in simple language" or "Why is this important?"`,
+              text: ctxText,
               timestamp: new Date().toISOString(),
             },
           ]);
@@ -66,7 +89,7 @@ export const ChatPage: React.FC = () => {
     } else {
       setArticleContext(null);
     }
-  }, [articleId]);
+  }, [articleId, language, isHindi]);
 
   const handleClearContext = () => {
     setArticleContext(null);
@@ -76,11 +99,26 @@ export const ChatPage: React.FC = () => {
   };
 
   const suggestionPrompts = articleContext
+    ? isHindi
+      ? [
+          'इस खबर को आसान भाषा में समझाओ',
+          'ऐसा क्यों हुआ?',
+          'यह क्यों महत्वपूर्ण है?',
+          'इसके मुख्य तथ्य क्या हैं?',
+        ]
+      : [
+          'Explain this news in simple language',
+          'Why does this matter to common people?',
+          'What is the background of this event?',
+          'What are the key facts?',
+        ]
+    : isHindi
     ? [
-        'Explain this news in simple language',
-        'Why does this matter to common people?',
-        'What is the background of this event?',
-        'What are the key facts?',
+        'आज देश और दुनिया में क्या महत्वपूर्ण हुआ?',
+        'आज भारत में क्या हुआ?',
+        'ताज़ा टेक्नोलॉजी और AI समाचार समझाएं',
+        'आज के मुख्य व्यापारिक समाचार क्या हैं?',
+        'विज्ञान और अंतरिक्ष की ताज़ा खोज क्या है?',
       ]
     : [
         'What important things happened today?',
@@ -123,8 +161,11 @@ export const ChatPage: React.FC = () => {
       const botMessage: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'assistant',
-        text: data.response,
-        relatedArticles: data.relatedArticles,
+        text: decodeText(data.response),
+        relatedArticles: data.relatedArticles?.map((a) => ({
+          ...a,
+          title: decodeText(a.title),
+        })),
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, botMessage]);
@@ -132,7 +173,9 @@ export const ChatPage: React.FC = () => {
       const errorMsg: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'assistant',
-        text: 'I encountered an error retrieving news context. Please ensure the backend is connected and try again.',
+        text: isHindi
+          ? 'समाचार संदर्भ प्राप्त करने में त्रुटि हुई। कृपया जांचें कि बैकएंड सक्रिय है और पुनः प्रयास करें।'
+          : 'I encountered an error retrieving news context. Please ensure the backend is connected and try again.',
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -146,18 +189,17 @@ export const ChatPage: React.FC = () => {
       {
         id: String(Date.now()),
         sender: 'assistant',
-        text: "Conversation cleared. What would you like to know about today's world?",
+        text: isHindi
+          ? 'बातचीत साफ़ कर दी गई है। आज की दुनिया के बारे में आप क्या जानना चाहते हैं?'
+          : "Conversation cleared. What would you like to know about today's world?",
         timestamp: new Date().toISOString(),
       },
     ]);
   };
 
-  /**
-   * Safe text renderer with code-block and URL handling to strictly prevent horizontal overflow
-   */
   const renderMessageContent = (text: string) => {
-    // Check if contains markdown code block ```code```
-    const parts = text.split(/(```[\s\S]*?```)/g);
+    const clean = decodeText(text);
+    const parts = clean.split(/(```[\s\S]*?```)/g);
 
     return parts.map((part, index) => {
       if (part.startsWith('```') && part.endsWith('```')) {
@@ -180,7 +222,6 @@ export const ChatPage: React.FC = () => {
         );
       }
 
-      // Format bold markdown **bold** and basic text
       const subParts = part.split(/(\*\*.*?\*\*)/g);
       return (
         <span key={index} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
@@ -204,9 +245,11 @@ export const ChatPage: React.FC = () => {
             <Sparkles className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold truncate">AI News Assistant</h2>
+            <h2 className="text-sm font-bold truncate">
+              {isHindi ? 'व्यक्तिगत एआई समाचार सहायक' : 'AI News Assistant'}
+            </h2>
             <p className="text-[10px] text-slate-400 truncate">
-              {isHinglish ? 'Hinglish Mode Active' : 'Verified Multi-Source News Grounding'}
+              {isHindi ? 'सत्यापित बहु-स्रोत समाचार आधार' : 'Verified Multi-Source News Grounding'}
             </p>
           </div>
         </div>
@@ -214,39 +257,43 @@ export const ChatPage: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleClear}
-            title="Clear Conversation"
+            title={isHindi ? 'बातचीत साफ़ करें' : 'Clear Conversation'}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors text-xs flex items-center gap-1"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Clear</span>
+            <span className="hidden sm:inline">{isHindi ? 'साफ़ करें' : 'Clear'}</span>
           </button>
         </div>
       </div>
 
-      {/* Article Context Card (Requirement 7: Discussing: [Article headline]) */}
+      {/* Article Context Card */}
       {articleContext && (
         <div className="bg-sky-50 border-b border-sky-200/90 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-sky-950 shrink-0 animate-fade-in">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" />
-            <span className="font-bold text-sky-900 shrink-0">Discussing:</span>
+            <span className="font-bold text-sky-900 shrink-0">
+              {isHindi ? 'चर्चाधीन:' : 'Discussing:'}
+            </span>
             <span className="font-semibold truncate text-sky-950">
-              {articleContext.title}
+              {decodeText(articleContext.title)}
             </span>
           </div>
 
           <button
             onClick={handleClearContext}
             className="p-1 hover:bg-sky-100 rounded-lg text-sky-700 transition-colors shrink-0 flex items-center gap-1"
-            title="Remove article context"
+            title={isHindi ? 'संदर्भ हटाएं' : 'Remove article context'}
             aria-label="Remove article context"
           >
-            <span className="text-[10px] font-medium hidden sm:inline">Remove</span>
+            <span className="text-[10px] font-medium hidden sm:inline">
+              {isHindi ? 'हटाएं' : 'Remove'}
+            </span>
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Message Area: Scrolls Independently, NO Horizontal Overflow */}
+      {/* Message Area */}
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto overflow-x-hidden min-h-0 space-y-4 bg-slate-50/60">
         {messages.map((m) => {
           const isUser = m.sender === 'user';
@@ -274,7 +321,9 @@ export const ChatPage: React.FC = () => {
                 {m.relatedArticles && m.relatedArticles.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Grounding Sources ({m.relatedArticles.length}):
+                      {isHindi
+                        ? `सत्यापित संदर्भ स्रोत (${m.relatedArticles.length}):`
+                        : `Grounding Sources (${m.relatedArticles.length}):`}
                     </span>
                     <div className="grid grid-cols-1 gap-1.5">
                       {m.relatedArticles.map((art) => (
@@ -286,7 +335,7 @@ export const ChatPage: React.FC = () => {
                           className="flex items-center justify-between p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs text-sky-700 transition-colors min-w-0"
                         >
                           <span className="truncate max-w-[90%] font-medium">
-                            {art.title}
+                            {decodeText(art.title)}
                           </span>
                           <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-2" />
                         </a>
@@ -311,18 +360,18 @@ export const ChatPage: React.FC = () => {
               <Sparkles className="w-4 h-4 animate-spin text-sky-600" />
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 shadow-sm text-slate-600 font-medium">
-              Analyzing verified news sources...
+              {isHindi ? 'सत्यापित समाचार स्रोतों का विश्लेषण जारी है...' : 'Analyzing verified news sources...'}
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Prompts Drawer (Toggleable via [+] button) */}
+      {/* Suggested Prompts Drawer */}
       {showPrompts && (
         <div className="p-3 bg-slate-100/90 border-t border-slate-200 space-y-2 shrink-0 animate-slide-up">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            <span>Suggested Questions</span>
+            <span>{isHindi ? 'सुझाए गए प्रश्न' : 'Suggested Questions'}</span>
             <button
               onClick={() => setShowPrompts(false)}
               className="text-slate-400 hover:text-slate-600"
@@ -344,7 +393,7 @@ export const ChatPage: React.FC = () => {
         </div>
       )}
 
-      {/* Fixed Bottom Input Composer: [ + ] [Ask anything...] [Send] */}
+      {/* Fixed Bottom Input Composer */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -360,7 +409,7 @@ export const ChatPage: React.FC = () => {
               ? 'bg-sky-100 text-sky-700'
               : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
           }`}
-          title="Suggested prompts"
+          title={isHindi ? 'सुझाए गए प्रश्न' : 'Suggested prompts'}
           aria-label="Toggle suggested prompts"
         >
           <Plus className="w-4 h-4" />
@@ -372,7 +421,11 @@ export const ChatPage: React.FC = () => {
           onChange={(e) => setInput(e.target.value)}
           placeholder={
             articleContext
-              ? `Ask about "${articleContext.title.slice(0, 25)}..."`
+              ? isHindi
+                ? `"${decodeText(articleContext.title).slice(0, 25)}..." के बारे में पूछें`
+                : `Ask about "${decodeText(articleContext.title).slice(0, 25)}..."`
+              : isHindi
+              ? 'आज के समाचार या अवधारणाओं के बारे में कुछ भी पूछें...'
               : 'Ask anything about today’s news or concepts...'
           }
           className="flex-1 min-w-0 px-4 py-2.5 bg-slate-100/80 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all truncate"
@@ -382,7 +435,7 @@ export const ChatPage: React.FC = () => {
           type="submit"
           disabled={!input.trim() || isSending}
           className="p-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white rounded-2xl shadow-sm transition-colors shrink-0"
-          title="Send question"
+          title={isHindi ? 'प्रश्न भेजें' : 'Send question'}
           aria-label="Send message"
         >
           <Send className="w-4 h-4" />

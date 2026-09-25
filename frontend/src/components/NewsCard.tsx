@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, Share2, Clock, Sparkles, Newspaper, ArrowRight } from 'lucide-react';
+import { Bookmark, Share2, Clock, Sparkles, ArrowRight } from 'lucide-react';
 import { NewsArticle } from '../types';
 import { timeAgo, copyToClipboard } from '../utils/formatters';
 import { getCategoryMeta } from '../data/categoriesData';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface NewsCardProps {
   article: NewsArticle;
@@ -21,13 +22,13 @@ export const NewsCard: React.FC<NewsCardProps> = ({
   onOpenDetail,
 }) => {
   const navigate = useNavigate();
+  const { isHindi, t, synthesizeHindi, decodeText } = useLanguage();
   const [imageError, setImageError] = useState(false);
   const [saving, setSaving] = useState(false);
   const catMeta = getCategoryMeta(article.category);
 
   const handleCardClick = () => {
     if (onOpenDetail) {
-      // Support legacy handler if provided, but primary action is navigating to dedicated detail page
       navigate(`/news/${article._id}`);
     } else {
       navigate(`/news/${article._id}`);
@@ -40,9 +41,17 @@ export const NewsCard: React.FC<NewsCardProps> = ({
     setSaving(true);
     try {
       const nowSaved = await onToggleSave(article._id);
-      onShowToast?.(nowSaved ? 'Article saved to bookmarks' : 'Article removed from bookmarks');
+      onShowToast?.(
+        nowSaved
+          ? isHindi
+            ? 'बुकमार्क में सहेज लिया गया'
+            : 'Article saved to bookmarks'
+          : isHindi
+          ? 'बुकमार्क से हटा दिया गया'
+          : 'Article removed from bookmarks'
+      );
     } catch (err: any) {
-      onShowToast?.(err.message || 'Please log in to save');
+      onShowToast?.(err.message || (isHindi ? 'कृपया सहेजने के लिए लॉगिन करें' : 'Please log in to save'));
     } finally {
       setSaving(false);
     }
@@ -52,8 +61,22 @@ export const NewsCard: React.FC<NewsCardProps> = ({
     e.stopPropagation();
     const link = `${window.location.origin}/news/${article._id}`;
     const success = await copyToClipboard(link);
-    onShowToast?.(success ? 'Article link copied!' : 'Failed to copy link');
+    onShowToast?.(
+      success
+        ? isHindi
+          ? 'लेख का लिंक कॉपी हो गया!'
+          : 'Article link copied!'
+        : isHindi
+        ? 'लिंक कॉपी करने में विफल'
+        : 'Failed to copy link'
+    );
   };
+
+  const displayTitle = isHindi ? synthesizeHindi(article.title) : decodeText(article.title);
+  const displayCategory = isHindi ? t(article.category) : article.category;
+  const displayDesc = isHindi
+    ? synthesizeHindi(article.description || article.content)
+    : decodeText(article.description || article.content || 'Tap to read full neutral analysis.');
 
   return (
     <article
@@ -66,7 +89,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       }}
       tabIndex={0}
       role="button"
-      aria-label={`Read article: ${article.title}`}
+      aria-label={`Read article: ${displayTitle}`}
       className="group bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500"
     >
       <div>
@@ -91,7 +114,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold ${catMeta.bgColor} ${catMeta.color} border ${catMeta.borderColor}`}
             >
               <span>{catMeta.emoji}</span>
-              <span>{article.category}</span>
+              <span>{displayCategory}</span>
             </span>
 
             <div className="flex items-center gap-1.5 text-slate-400 font-medium truncate">
@@ -108,12 +131,12 @@ export const NewsCard: React.FC<NewsCardProps> = ({
 
           {/* Headline */}
           <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug group-hover:text-sky-600 transition-colors line-clamp-2">
-            {article.title}
+            {displayTitle}
           </h3>
 
           {/* Short Summary (2-3 lines) */}
           <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
-            {article.description || article.content || 'Tap to read full neutral analysis.'}
+            {displayDesc}
           </p>
         </div>
       </div>
@@ -122,7 +145,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       <div className="px-4 sm:px-5 py-3 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between text-xs">
         <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100/80">
           <Sparkles className="w-3 h-3 text-sky-500" />
-          <span>AI Summary</span>
+          <span>{isHindi ? 'एआई सारांश' : 'AI Summary'}</span>
         </div>
 
         <div className="flex items-center gap-1 text-slate-400">
@@ -130,7 +153,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
             type="button"
             onClick={handleShare}
             className="p-1.5 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors"
-            title="Share"
+            title={isHindi ? 'शेयर करें' : 'Share'}
             aria-label="Share article"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -144,7 +167,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
                 ? 'text-sky-600 bg-sky-50 hover:bg-sky-100'
                 : 'hover:text-slate-700 hover:bg-slate-200/60'
             }`}
-            title={isSaved ? 'Bookmarked' : 'Save bookmark'}
+            title={isSaved ? (isHindi ? 'सहेजा गया' : 'Bookmarked') : (isHindi ? 'सहेजें' : 'Save bookmark')}
             aria-label="Bookmark article"
           >
             <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-sky-600' : ''}`} />

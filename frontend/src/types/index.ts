@@ -21,9 +21,14 @@ export interface User {
 
 export interface SummaryData {
   summary: string;
+  whatHappened?: string;
+  whyDidItHappen?: string;
   whyItMatters: string;
+  impact?: string;
   background: string;
   keyFacts: string[];
+  easyExplanation?: string;
+  whatNext?: string;
   knowledge: {
     topic: string;
     simpleExplanation: string;

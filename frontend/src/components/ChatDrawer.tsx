@@ -14,12 +14,18 @@ import { useLanguage } from '../hooks/useLanguage';
 
 export const ChatDrawer: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { language } = useLanguage();
+  const { language, isHindi, decodeText } = useLanguage();
+
+  const getWelcomeText = () =>
+    isHindi
+      ? 'नमस्ते! मैं आपका व्यक्तिगत एआई समाचार और ज्ञान सहायक हूँ। आज के भारत, विश्व, टेक्नोलॉजी, विज्ञान या व्यापार के समाचारों या किसी भी अवधारणा को आसान हिंदी में समझने के लिए मुझसे पूछें।'
+      : "Hello! I'm your Personal AI News & Knowledge Assistant. Ask me anything about today's news in India, World, Technology, Science, Business, or ask for simple explanations of any concept.";
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       sender: 'assistant',
-      text: "Hello! I'm your Personal AI News & Knowledge Assistant. Ask me anything about today's news in India, World, Technology, Science, Business, or ask for simple explanations of any concept.",
+      text: getWelcomeText(),
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -28,12 +34,28 @@ export const ChatDrawer: React.FC = () => {
   const [showChips, setShowChips] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const suggestionChips = [
-    "What happened today?",
-    "Give me India news",
-    "Explain latest AI news",
-    "Why is AI governance important?",
-  ];
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === 'welcome') {
+        return [{ ...prev[0], text: getWelcomeText() }];
+      }
+      return prev;
+    });
+  }, [isHindi]);
+
+  const suggestionChips = isHindi
+    ? [
+        'आज क्या महत्वपूर्ण हुआ?',
+        'भारत के ताज़ा समाचार',
+        'ताज़ा AI समाचार समझाएं',
+        'यह क्यों महत्वपूर्ण है?',
+      ]
+    : [
+        'What happened today?',
+        'Give me India news',
+        'Explain latest AI news',
+        'Why is AI governance important?',
+      ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,8 +88,11 @@ export const ChatDrawer: React.FC = () => {
       const assistantMsg: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'assistant',
-        text: data.response,
-        relatedArticles: data.relatedArticles,
+        text: decodeText(data.response),
+        relatedArticles: data.relatedArticles?.map((a) => ({
+          ...a,
+          title: decodeText(a.title),
+        })),
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -75,7 +100,9 @@ export const ChatDrawer: React.FC = () => {
       const errorMsg: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'assistant',
-        text: 'Sorry, I encountered an issue retrieving the latest news context. Please try asking again.',
+        text: isHindi
+          ? 'समाचार संदर्भ प्राप्त करने में त्रुटि हुई। कृपया पुनः प्रयास करें।'
+          : 'Sorry, I encountered an issue retrieving the latest news context. Please try asking again.',
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -94,7 +121,9 @@ export const ChatDrawer: React.FC = () => {
           aria-label="Open AI News Chat"
         >
           <Sparkles className="w-5 h-5 animate-pulse" />
-          <span className="hidden md:inline text-xs font-bold pr-1">Ask AI</span>
+          <span className="hidden md:inline text-xs font-bold pr-1">
+            {isHindi ? 'एआई से पूछें' : 'Ask AI'}
+          </span>
         </button>
       )}
 
@@ -108,8 +137,12 @@ export const ChatDrawer: React.FC = () => {
                 <Bot className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs font-bold truncate">Personal AI News Assistant</h3>
-                <p className="text-[10px] text-slate-400 truncate">Verified news grounding</p>
+                <h3 className="text-xs font-bold truncate">
+                  {isHindi ? 'व्यक्तिगत एआई समाचार सहायक' : 'Personal AI News Assistant'}
+                </h3>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {isHindi ? 'सत्यापित समाचार आधार' : 'Verified news grounding'}
+                </p>
               </div>
             </div>
             <button
@@ -121,7 +154,7 @@ export const ChatDrawer: React.FC = () => {
             </button>
           </div>
 
-          {/* Messages Area: independent scroll, no horizontal overflow */}
+          {/* Messages Area */}
           <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden space-y-3.5 bg-slate-50/50 min-h-0">
             {messages.map((m) => {
               const isUser = m.sender === 'user';
@@ -148,7 +181,7 @@ export const ChatDrawer: React.FC = () => {
                     {m.relatedArticles && m.relatedArticles.length > 0 && (
                       <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Verified Sources:
+                          {isHindi ? 'सत्यापित स्रोत:' : 'Verified Sources:'}
                         </span>
                         {m.relatedArticles.map((art) => (
                           <a
@@ -159,7 +192,7 @@ export const ChatDrawer: React.FC = () => {
                             className="flex items-center justify-between p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-[11px] text-sky-600 truncate transition-colors"
                           >
                             <span className="truncate max-w-[90%] font-medium">
-                              {art.title}
+                              {decodeText(art.title)}
                             </span>
                             <ExternalLink className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
                           </a>
@@ -182,7 +215,7 @@ export const ChatDrawer: React.FC = () => {
                 <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
                   <Sparkles className="w-3.5 h-3.5 animate-spin text-sky-600" />
                 </div>
-                <span>Analyzing news context...</span>
+                <span>{isHindi ? 'विश्लेषण जारी है...' : 'Analyzing news context...'}</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -203,7 +236,7 @@ export const ChatDrawer: React.FC = () => {
             </div>
           )}
 
-          {/* Fixed Composer: [ + ] [Ask anything...] [Send] */}
+          {/* Fixed Composer */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -219,7 +252,7 @@ export const ChatDrawer: React.FC = () => {
                   ? 'bg-sky-100 text-sky-700'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
               }`}
-              title="Suggested questions"
+              title={isHindi ? 'सुझाए गए प्रश्न' : 'Suggested questions'}
               aria-label="Toggle suggestions"
             >
               <Plus className="w-4 h-4" />
@@ -229,7 +262,11 @@ export const ChatDrawer: React.FC = () => {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask anything about today's news..."
+              placeholder={
+                isHindi
+                  ? 'आज के समाचारों के बारे में कुछ भी पूछें...'
+                  : "Ask anything about today's news..."
+              }
               className="flex-1 min-w-0 px-3.5 py-2 bg-slate-100/80 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all truncate"
             />
             <button

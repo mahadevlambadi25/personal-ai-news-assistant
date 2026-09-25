@@ -4,6 +4,7 @@ import { Bookmark, Clock, Sparkles, Newspaper } from 'lucide-react';
 import { NewsArticle } from '../types';
 import { timeAgo } from '../utils/formatters';
 import { getCategoryMeta } from '../data/categoriesData';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface SecondaryStoryCardProps {
   article: NewsArticle;
@@ -19,6 +20,7 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
   onShowToast,
 }) => {
   const navigate = useNavigate();
+  const { isHindi, t, synthesizeHindi, decodeText } = useLanguage();
   const [imageError, setImageError] = useState(false);
   const [saving, setSaving] = useState(false);
   const catMeta = getCategoryMeta(article.category);
@@ -33,13 +35,27 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
     setSaving(true);
     try {
       const nowSaved = await onToggleSave(article._id);
-      onShowToast?.(nowSaved ? 'Saved to bookmarks' : 'Removed from bookmarks');
+      onShowToast?.(
+        nowSaved
+          ? isHindi
+            ? 'बुकमार्क में सहेज लिया गया'
+            : 'Saved to bookmarks'
+          : isHindi
+          ? 'बुकमार्क से हटा दिया गया'
+          : 'Removed from bookmarks'
+      );
     } catch (err: any) {
-      onShowToast?.(err.message || 'Please log in to save');
+      onShowToast?.(err.message || (isHindi ? 'कृपया सहेजने के लिए लॉगिन करें' : 'Please log in to save'));
     } finally {
       setSaving(false);
     }
   };
+
+  const displayTitle = isHindi ? synthesizeHindi(article.title) : decodeText(article.title);
+  const displayCategory = isHindi ? t(article.category) : article.category;
+  const displayDesc = isHindi
+    ? synthesizeHindi(article.description || article.content)
+    : decodeText(article.description || article.content || 'Tap to read full structured story.');
 
   return (
     <article
@@ -52,7 +68,7 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${catMeta.bgColor} ${catMeta.color} border ${catMeta.borderColor}`}
           >
             <span>{catMeta.emoji}</span>
-            <span>{article.category}</span>
+            <span>{displayCategory}</span>
           </span>
           <span className="text-[11px] text-slate-400 font-medium truncate">
             {article.sourceName}
@@ -60,11 +76,11 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
         </div>
 
         <h4 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-sky-600 transition-colors line-clamp-2">
-          {article.title}
+          {displayTitle}
         </h4>
 
         <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-          {article.description || article.content || 'Tap to read full structured story.'}
+          {displayDesc}
         </p>
 
         <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
@@ -75,7 +91,7 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
 
           <span className="inline-flex items-center gap-1 text-sky-600 font-semibold">
             <Sparkles className="w-3 h-3" />
-            <span>AI Ready</span>
+            <span>{isHindi ? 'एआई तैयार' : 'AI Ready'}</span>
           </span>
         </div>
       </div>
@@ -85,7 +101,7 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
         {article.imageUrl && !imageError ? (
           <img
             src={article.imageUrl}
-            alt={article.title}
+            alt={displayTitle}
             onError={() => setImageError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
@@ -105,7 +121,7 @@ export const SecondaryStoryCard: React.FC<SecondaryStoryCardProps> = ({
               ? 'bg-sky-600 text-white shadow-sm'
               : 'bg-slate-900/60 text-white hover:bg-slate-900/90'
           }`}
-          title={isSaved ? 'Bookmarked' : 'Bookmark story'}
+          title={isSaved ? (isHindi ? 'सहेजा गया' : 'Bookmarked') : (isHindi ? 'बुकमार्क करें' : 'Bookmark story')}
           aria-label="Bookmark story"
         >
           <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-white' : ''}`} />

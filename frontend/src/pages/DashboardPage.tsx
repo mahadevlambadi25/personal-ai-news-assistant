@@ -7,7 +7,6 @@ import {
   TrendingUp,
   RotateCw,
   AlertCircle,
-  Clock,
 } from 'lucide-react';
 import { NewsArticle, KnowledgeItem, CategoryCount } from '../types';
 import { newsApi, knowledgeApi } from '../services/api';
@@ -18,6 +17,7 @@ import { SkeletonCard } from '../components/SkeletonCard';
 import { CategoryPills } from '../components/CategoryPills';
 import { InstallPrompt } from '../components/InstallPrompt';
 import { useSavedNews } from '../hooks/useSavedNews';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface ContextType {
   onOpenDetail?: (article: NewsArticle) => void;
@@ -29,6 +29,7 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast, categoryCounts } = useOutletContext<ContextType>();
   const { isSaved, toggleSave } = useSavedNews();
+  const { isHindi, t, synthesizeHindi, decodeText } = useLanguage();
 
   const [topArticles, setTopArticles] = useState<NewsArticle[]>([]);
   const [secondaryArticles, setSecondaryArticles] = useState<NewsArticle[]>([]);
@@ -61,12 +62,12 @@ export const DashboardPage: React.FC = () => {
         setTodayKnowledge(knowRes.items[0]);
       }
     } catch {
-      setLoadError("Unable to load today's news feeds.");
-      showToast?.('Could not load dashboard news.');
+      setLoadError(isHindi ? 'आज के समाचार लोड नहीं हो सके।' : "Unable to load today's news feeds.");
+      showToast?.(isHindi ? 'डैशबोर्ड समाचार लोड नहीं हो सके' : 'Could not load dashboard news.');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, isHindi]);
 
   useEffect(() => {
     loadDashboardData();
@@ -83,7 +84,7 @@ export const DashboardPage: React.FC = () => {
       {/* PWA Install Banner */}
       <InstallPrompt />
 
-      {/* Category Pills Navigation (Horizontal scroll on mobile) */}
+      {/* Category Pills Navigation */}
       <div>
         <CategoryPills
           categoryCounts={categoryCounts}
@@ -104,14 +105,16 @@ export const DashboardPage: React.FC = () => {
           </div>
           <h3 className="text-base font-bold text-slate-900">{loadError}</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Please verify your network connection and backend server status.
+            {isHindi
+              ? 'कृपया अपना इंटरनेट कनेक्शन और बैकएंड सर्वर जांचें।'
+              : 'Please verify your network connection and backend server status.'}
           </p>
           <button
             onClick={loadDashboardData}
             className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors inline-flex items-center gap-1.5"
           >
             <RotateCw className="w-3.5 h-3.5" />
-            <span>Retry</span>
+            <span>{isHindi ? 'पुनः प्रयास करें' : 'Retry'}</span>
           </button>
         </div>
       )}
@@ -144,10 +147,12 @@ export const DashboardPage: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-extrabold text-slate-950 tracking-tight">
-                  Top Stories Today
+                  {isHindi ? 'आज के प्रमुख समाचार' : 'Top Stories Today'}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">
-                  Important developments curated with AI synthesis
+                  {isHindi
+                    ? 'एआई विश्लेषण और सरल व्याख्या के साथ महत्वपूर्ण समाचार'
+                    : 'Important developments curated with AI synthesis'}
                 </p>
               </div>
             </div>
@@ -156,7 +161,7 @@ export const DashboardPage: React.FC = () => {
               onClick={() => navigate('/latest')}
               className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1 group"
             >
-              <span>View all</span>
+              <span>{isHindi ? 'सभी देखें' : 'View all'}</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
@@ -195,10 +200,10 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div className="truncate">
                     <div className="text-xs font-bold group-hover:text-sky-300 transition-colors">
-                      Ask AI anything about today's news
+                      {isHindi ? 'आज की खबरों के बारे में AI से पूछें' : "Ask AI anything about today's news"}
                     </div>
                     <div className="text-[11px] text-slate-400 truncate">
-                      Grounded in verified multi-source news
+                      {isHindi ? 'सत्यापित समाचार स्रोतों पर आधारित' : 'Grounded in verified multi-source news'}
                     </div>
                   </div>
                 </div>
@@ -216,13 +221,15 @@ export const DashboardPage: React.FC = () => {
             <div className="space-y-1.5 max-w-3xl">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-600 text-white shadow-sm">
                 <BookOpen className="w-3 h-3" />
-                <span>Knowledge Concept of the Day</span>
+                <span>{isHindi ? 'आज की मुख्य अवधारणा' : 'Knowledge Concept of the Day'}</span>
               </div>
               <h3 className="text-base sm:text-lg font-bold text-violet-950">
-                {todayKnowledge.topic}
+                {isHindi ? synthesizeHindi(todayKnowledge.topic) : decodeText(todayKnowledge.topic)}
               </h3>
               <p className="text-xs sm:text-sm text-violet-900 leading-relaxed">
-                {todayKnowledge.simpleExplanation}
+                {isHindi
+                  ? synthesizeHindi(todayKnowledge.simpleExplanation)
+                  : decodeText(todayKnowledge.simpleExplanation)}
               </p>
             </div>
 
@@ -230,7 +237,7 @@ export const DashboardPage: React.FC = () => {
               onClick={() => navigate('/knowledge')}
               className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors whitespace-nowrap self-start md:self-center flex items-center gap-1.5"
             >
-              <span>Explore Knowledge Hub</span>
+              <span>{isHindi ? 'ज्ञान केंद्र देखें' : 'Explore Knowledge Hub'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -243,10 +250,10 @@ export const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-950 tracking-tight">
-                More Recent Stories
+                {isHindi ? 'ताज़ा समाचार' : 'More Recent Stories'}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Fresh reports across national and international desks
+                {isHindi ? 'देश और दुनिया की ताज़ा सत्यापित खबरें' : 'Fresh reports across national and international desks'}
               </p>
             </div>
           </div>

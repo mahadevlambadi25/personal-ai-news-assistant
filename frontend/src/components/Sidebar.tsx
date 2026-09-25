@@ -19,6 +19,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SidebarProps {
   categoryCounts?: Array<{ name: string; count: number }>;
@@ -26,6 +27,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ categoryCounts = [] }) => {
   const { user } = useAuth();
+  const { t, isHindi } = useLanguage();
   const countMap = new Map(categoryCounts.map((c) => [c.name, c.count]));
 
   const mainLinks = [
@@ -50,22 +52,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ categoryCounts = [] }) => {
   ];
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200/80 h-screen sticky top-0 overflow-y-auto select-none">
+    <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200/80 h-screen sticky top-0 overflow-y-auto select-none shrink-0">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
           <Sparkles className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-sm font-bold text-slate-900 tracking-tight">AI News & Knowledge</h1>
-          <p className="text-[11px] text-slate-500 font-medium">Objective Daily Insights</p>
+          <h1 className="text-sm font-bold text-slate-900 tracking-tight">{t('AI News & Knowledge')}</h1>
+          <p className="text-[11px] text-slate-500 font-medium">
+            {isHindi ? 'सत्यापित दैनिक समाचार' : 'Objective Daily Insights'}
+          </p>
         </div>
       </div>
 
       {/* Main Navigation */}
       <div className="p-3 space-y-1">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">
-          Feeds
+          {t('Feeds')}
         </div>
         {mainLinks.map((item) => {
           const Icon = item.icon;
@@ -84,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ categoryCounts = [] }) => {
             >
               <div className="flex items-center gap-2.5">
                 <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
               </div>
             </NavLink>
           );
@@ -94,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ categoryCounts = [] }) => {
       {/* 10 Topic Categories */}
       <div className="p-3 space-y-1 border-t border-slate-100">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">
-          Categories
+          {t('Categories')}
         </div>
         {categoryLinks.map((item) => {
           const rawName = decodeURIComponent(item.to.replace('/category/', ''));
